@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Steganography</title>
+</head>
+<body>
+  <input type="file" id="fileInput">
+  <button onclick="encodeMessage()">Encode Message</button>
+  <button onclick="downloadImage()">Download Encoded Image</button>
+  <br>
+  <input type="file" id="encodedFileInput">
+  <button onclick="decodeMessage()">Decode Message</button>
+  <div id="message"></div>
+  <img id="outputImage">
+  
+  <script>
+    let encodedImageData = null;
+
+    function encodeMessage() {
+      const fileInput = document.getElementById('fileInput');
+      const message = prompt('Enter the message to encode:');
+      const reader = new FileReader();
+      
+      reader.onload = function(event) {
+        const image = new Image();
+        image.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          let charIndex = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            if (charIndex < message.length) {
+              data[i] = message.charCodeAt(charIndex++);
+            } else {
+              // If the message has been fully encoded, fill the remaining data with zeros
+              data[i] = 0;
+            }
+          }
+          
+          context.putImageData(imageData, 0, 0);
+          encodedImageData = canvas.toDataURL('image/png');
+          document.getElementById('outputImage').src = encodedImageData;
+        };
+        image.src = event.target.result;
+      };
+      
+      reader.readAsDataURL(fileInput.files[0]);
+    }
+
+    function downloadImage() {
+      if (encodedImageData) {
+        const link = document.createElement('a');
+        link.href = encodedImageData;
+        link.download = 'encoded_image.png';
+        link.click();
+      } else {
+        alert('No encoded image available.');
+      }
+    }
+    
+    function decodeMessage() {
+      const fileInput = document.getElementById('encodedFileInput');
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        const image = new Image();
+        image.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          let message = '';
+          for (let i = 0; i < data.length; i += 4) {
+            if (data[i] !== 0) {
+              message += String.fromCharCode(data[i]);
+            } else {
+              break;
+            }
+          }
+          
+          document.getElementById('message').innerText = 'Decoded Message: ' + message;
+        };
+        image.src = event.target.result;
+      };
+      
+      reader.readAsDataURL(fileInput.files[0]);
+    }
+  </script>
+</body>
+</html>
