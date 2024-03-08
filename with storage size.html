@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Image Steganography</title>
+</head>
+<body>
+  <input type="file" id="fileInput">
+  <button onclick="encodeMessage()">Encode Message</button>
+  <button onclick="decodeMessage()">Decode Message</button>
+  <div id="message"></div>
+  <div id="messageSize"></div>
+  <div id="messageSizeLimit"></div>
+  <a id="downloadLink" style="display:none;" download="encoded_image.png">Download Encoded Image</a>
+  <img id="outputImage">
+  
+  <input type="file" id="uploadedFileInput">
+  <button onclick="decodeUploadedMessage()">Decode Uploaded Image</button>
+  
+  <script>
+    function encodeMessage() {
+      const fileInput = document.getElementById('fileInput');
+      const message = prompt('Enter the message to encode:');
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        const image = new Image();
+        image.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          // Calculate maximum message size based on image size
+          const maxMessageSize = ((canvas.width * canvas.height * 3) / 8) - 32; // Assuming 3 bytes per pixel
+
+          // Encode message length
+          let messageLength = Math.min(message.length, maxMessageSize);
+          for (let i = 0; i < 32; i += 8) {
+            data[i] = (messageLength >> i) & 0xFF;
+          }
+
+          // Encode message
+          let charIndex = 0;
+          for (let i = 32; i < data.length && charIndex < messageLength; i += 4) {
+            const charCode = message.charCodeAt(charIndex++);
+            data[i] = (data[i] & 0xFC) | ((charCode >> 6) & 0x03);
+            data[i + 1] = (data[i + 1] & 0xFC) | ((charCode >> 4) & 0x03);
+            data[i + 2] = (data[i + 2] & 0xFC) | ((charCode >> 2) & 0x03);
+            data[i + 3] = (data[i + 3] & 0xFC) | (charCode & 0x03);
+          }
+
+          context.putImageData(imageData, 0, 0);
+          const encodedImage = canvas.toDataURL('image/png');
+          document.getElementById('outputImage').src = encodedImage;
+
+          // Calculate and display message size
+          const messageSizeKB = (messageLength * 8) / 1024; // convert bits to kilobytes
+          document.getElementById('messageSize').innerText = 'Message Size: ' + messageSizeKB.toFixed(2) + ' KB';
+          document.getElementById('messageSizeLimit').innerText = ' / ' + (maxMessageSize / 1024).toFixed(2) + ' KB'; // Set the limit here
+
+          // Create a download link for the encoded image
+          const downloadLink = document.getElementById('downloadLink');
+          downloadLink.href = encodedImage;
+          downloadLink.style.display = 'inline-block';
+        };
+        image.src = event.target.result;
+      };
+
+      reader.readAsDataURL(fileInput.files[0]);
+    }
+
+    function decodeMessage() {
+      const image = document.getElementById('outputImage');
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Decode message length
+      let messageLength = 0;
+      for (let i = 0; i < 32; i += 8) {
+        messageLength |= data[i] << i;
+      }
+
+      // Decode message
+      let message = '';
+      for (let i = 32; i < data.length && message.length < messageLength; i += 4) {
+        let charCode = 0;
+        charCode |= (data[i] & 0x03) << 6;
+        charCode |= (data[i + 1] & 0x03) << 4;
+        charCode |= (data[i + 2] & 0x03) << 2;
+        charCode |= data[i + 3] & 0x03;
+        message += String.fromCharCode(charCode);
+      }
+
+      document.getElementById('message').innerText = 'Decoded Message: ' + message;
+    }
+
+    function decodeUploadedMessage() {
+      const fileInput = document.getElementById('uploadedFileInput');
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        const image = new Image();
+        image.onload = function() {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          // Decode message length
+          let messageLength = 0;
+          for (let i = 0; i < 32; i += 8) {
+            messageLength |= data[i] << i;
+          }
+
+          // Decode message
+          let message = '';
+          for (let i = 32; i < data.length && message.length < messageLength; i += 4) {
+            let charCode = 0;
+            charCode |= (data[i] & 0x03) << 6;
+            charCode |= (data[i + 1] & 0x03) << 4;
+            charCode |= (data[i + 2] & 0x03) << 2;
+            charCode |= data[i + 3] & 0x03;
+            message += String.fromCharCode(charCode);
+          }
+
+          document.getElementById('message').innerText = 'Decoded Message: ' + message;
+        };
+        image.src = event.target.result;
+      };
+
+      reader.readAsDataURL(fileInput.files[0]);
+    }
+  </script>
+</body>
+</html>
